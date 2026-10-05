@@ -406,6 +406,8 @@ document.getElementById("planToggle").onclick = () => {
   document.getElementById("tripBox").style.display = tripMode ? "block" : "none";
   if (tripMode) {
     panel.classList.remove("hidden");
+    fromSel.value = ""; toSel.value = "";
+    tripFrom = tripTo = null;
     planTrip();
   } else {
     tripLayer.clearLayers(); tripFrom = tripTo = null;
