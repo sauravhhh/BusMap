@@ -295,8 +295,8 @@ document.getElementById("grab").onclick = togglePanel;
 /* ============ TRIP PLANNER ============ */
 const stopNames = Object.keys(STOPS).sort();
 const fromSel = document.getElementById("fromSel"), toSel = document.getElementById("toSel");
+fromSel.add(new Option("From…", "")); toSel.add(new Option("To…", ""));
 stopNames.forEach(n => { fromSel.add(new Option(n, n)); toSel.add(new Option(n, n)); });
-fromSel.value = "Paltan Bazar"; toSel.value = "Khanapara";
 
 let tripMode = false, tripFrom = null, tripTo = null;
 const tripLayer = L.layerGroup().addTo(map);
@@ -360,7 +360,7 @@ function planTrip() {
         "<div class='via'>" + best.v1.join(" &rarr; ") + "</div>" +
         "<div class='trow'>" + rBadge(best.r2) + "<b>Route " + best.r2.n + "</b>" +
         "<span class='tdist'>" + d2.toFixed(1) + " km &middot; &asymp;" + mins(d2) + " min</span></div>" +
-        "<div class='via'>" + best.v2.join(" &rarr; ") + "</div>" +
+        "<div class='via'>" + best.v2.slice(1).join(" &rarr; ") + "</div>" +
         "<div class='ttotal'>Total &asymp; " + best.total.toFixed(1) + " km &middot; &asymp;" + mins(best.total) + " min</div></div>";
     } else {
       html = "<div class='tcard' style='font-size:13px;'>No bus connection found between these stops.</div>";
@@ -403,7 +403,7 @@ document.getElementById("planToggle").onclick = () => {
   document.getElementById("tripBox").style.display = tripMode ? "block" : "none";
   if (tripMode) {
     panel.classList.remove("hidden");
-    if (fromSel.value && toSel.value) planTrip();
+    planTrip();
   } else {
     tripLayer.clearLayers(); tripFrom = tripTo = null;
   }
