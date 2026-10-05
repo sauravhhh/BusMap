@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Guwahati Bus Map — ASTC City Bus Routes</title>
+<title>BusMap — Guwahati City Bus Routes</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='14' width='48' height='30' rx='6' fill='%23111'/%3E%3Crect x='13' y='19' width='38' height='12' rx='2' fill='%23fff'/%3E%3Ccircle cx='20' cy='48' r='5' fill='%23111'/%3E%3Ccircle cx='44' cy='48' r='5' fill='%23111'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -93,7 +96,7 @@
 
 <div class="topbar">
   <span class="bus">🚌</span>
-  <h1>Guwahati Bus Map<small>ASTC CITY BUS ROUTES &middot; 37 ROUTES</small></h1>
+  <h1>BusMap<small>GUWAHATI ASTC CITY BUS ROUTES &middot; 37 ROUTES</small></h1>
   <button id="planToggle">Plan trip</button>
   <button id="panelToggle">Routes</button>
 </div>
@@ -410,6 +413,11 @@ document.getElementById("planToggle").onclick = () => {
 };
 
 render(""); updateCount();
+
+/* register service worker for installable offline PWA */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
 </script>
 </body>
 </html>
