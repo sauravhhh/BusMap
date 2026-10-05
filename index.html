@@ -22,6 +22,20 @@
     background:#fff; color:#111; border:none; border-radius:20px;
     padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
   }
+  #planToggle {
+    background:transparent; color:#fff; border:1px solid rgba(255,255,255,.7); border-radius:20px;
+    padding:6px 13px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
+  }
+  #planToggle.on { background:#fff; color:#111; border-color:#fff; }
+  .tcard { border:1px solid #e4e4e4; border-radius:12px; padding:10px 12px; margin-bottom:8px; background:#fafafa; }
+  .trow { display:flex; align-items:center; gap:8px; margin:8px 0 4px; }
+  .trow b { font-size:13px; }
+  .tdist { margin-left:auto; font-size:12px; color:#555; white-space:nowrap; }
+  .tok { font-size:12px; color:#1a7a3c; font-weight:700; margin:2px 0 4px; }
+  .twarn { font-size:12px; color:#b35400; font-weight:700; margin:2px 0 4px; }
+  .ttotal { font-size:13px; font-weight:700; margin-top:8px; }
+  .tsel { flex:1; min-width:0; border:1px solid #ddd; border-radius:10px; padding:8px; font-size:13px; background:#f7f7f7; outline:none; }
+  #swapBtn { border:1px solid #111; background:#fff; border-radius:50%; width:34px; height:34px; font-size:15px; cursor:pointer; flex-shrink:0; }
   .panel {
     position:fixed; left:0; right:0; bottom:0; z-index:1000;
     background:#fff; border-top:1px solid #e2e2e2; border-radius:16px 16px 0 0;
@@ -80,6 +94,7 @@
 <div class="topbar">
   <span class="bus">🚌</span>
   <h1>Guwahati Bus Map<small>ASTC CITY BUS ROUTES &middot; 37 ROUTES</small></h1>
+  <button id="planToggle">Plan trip</button>
   <button id="panelToggle">Routes</button>
 </div>
 <div class="count" id="count"></div>
@@ -90,6 +105,15 @@
     <input id="search" type="search" placeholder="Search route no. or place…">
     <button class="tbtn on" id="btnAll">All</button>
     <button class="tbtn" id="btnNone">None</button>
+  </div>
+  <div id="tripBox" style="display:none;border-bottom:1px solid #f0f0f0;padding:2px 14px 12px;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <select id="fromSel" class="tsel"></select>
+      <button id="swapBtn" title="Swap">&#8646;</button>
+      <select id="toSel" class="tsel"></select>
+    </div>
+    <div id="tripResult"></div>
+    <div style="font-size:11px;color:#888;margin-top:8px;">Tip: with Plan trip on, you can also tap two stops directly on the map.</div>
   </div>
   <div id="routeList"></div>
   <div class="src">
@@ -201,6 +225,7 @@ ROUTES.forEach((r, i) => {
 });
 
 /* draw stops */
+const stopMarkers = {};
 Object.keys(STOPS).forEach(name => {
   const c = STOPS[name], approx = c[2] === 1;
   const m = L.circleMarker([c[0], c[1]], {
@@ -210,6 +235,8 @@ Object.keys(STOPS).forEach(name => {
   m.bindPopup("<b>" + name + "</b>" + (approx ? " <span style='color:#888'>(approx.)</span>" : "") +
     "<br><span class='via'>Routes: " + rs + "</span>");
   m.addTo(map);
+  stopMarkers[name] = m;
+  m.on("click", () => { if (tripMode) { map.closePopup(); tapStop(name); } });
 });
 
 /* ============ PANEL ============ */
@@ -264,6 +291,123 @@ document.getElementById("btnNone").onclick = () => {
 const togglePanel = () => panel.classList.toggle("hidden");
 document.getElementById("panelToggle").onclick = togglePanel;
 document.getElementById("grab").onclick = togglePanel;
+
+/* ============ TRIP PLANNER ============ */
+const stopNames = Object.keys(STOPS).sort();
+const fromSel = document.getElementById("fromSel"), toSel = document.getElementById("toSel");
+stopNames.forEach(n => { fromSel.add(new Option(n, n)); toSel.add(new Option(n, n)); });
+fromSel.value = "Paltan Bazar"; toSel.value = "Khanapara";
+
+let tripMode = false, tripFrom = null, tripTo = null;
+const tripLayer = L.layerGroup().addTo(map);
+
+function hav(a, b) {
+  const R = 6371, dLa = (b[0]-a[0])*Math.PI/180, dLo = (b[1]-a[1])*Math.PI/180;
+  const s = Math.sin(dLa/2)**2 + Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function segStops(r, a, b) {           // ordered stop names from a to b along route r
+  const i = r.stops.indexOf(a), j = r.stops.indexOf(b);
+  return i <= j ? r.stops.slice(i, j+1) : r.stops.slice(j, i+1).reverse();
+}
+function pathDist(names) {
+  let d = 0;
+  for (let k = 0; k < names.length-1; k++) d += hav(STOPS[names[k]].slice(0,2), STOPS[names[k+1]].slice(0,2));
+  return d;
+}
+const mins = km => Math.max(1, Math.round(km/20*60));   // ~20 km/h city average
+const rBadge = r => "<span class='rnum' style='background:" + colorFor(ROUTES.indexOf(r)) + ";min-width:28px;height:28px;font-size:12px;'>" + r.n + "</span>";
+
+function planTrip() {
+  tripLayer.clearLayers();
+  const a = fromSel.value, b = toSel.value;
+  const res = document.getElementById("tripResult");
+  if (!a || !b || a === b) {
+    res.innerHTML = "<div style='font-size:12px;color:#666;padding:6px 0;'>Pick two different stops to plan your trip.</div>";
+    return;
+  }
+  let html = "", pathNames = null, transfer = null;
+  const direct = ROUTES.filter(r => r.stops.includes(a) && r.stops.includes(b))
+    .map(r => { const via = segStops(r, a, b); return { r, via, d: pathDist(via) }; })
+    .sort((x, y) => x.d - y.d).slice(0, 3);
+  if (direct.length) {
+    html = direct.map((o, i) => {
+      if (i === 0) pathNames = o.via;
+      return "<div class='tcard'>" +
+        (i === 0 ? "<div class='tok'>Direct bus — no change needed</div>" : "") +
+        "<div class='trow'>" + rBadge(o.r) + "<b>Route " + o.r.n + "</b>" +
+        "<span class='tdist'>" + o.d.toFixed(1) + " km &middot; &asymp;" + mins(o.d) + " min</span></div>" +
+        "<div class='via'>" + o.via.join(" &rarr; ") + "</div></div>";
+    }).join("");
+  } else {
+    let best = null;
+    const rA = ROUTES.filter(r => r.stops.includes(a)), rB = ROUTES.filter(r => r.stops.includes(b));
+    for (const r1 of rA) for (const r2 of rB) {
+      if (r1.n === r2.n) continue;
+      for (const t of r1.stops) {
+        if (t === a || t === b || !r2.stops.includes(t)) continue;
+        const v1 = segStops(r1, a, t), v2 = segStops(r2, t, b);
+        const tot = pathDist(v1) + pathDist(v2);
+        if (!best || tot < best.total) best = { r1, r2, t, total: tot, v1, v2 };
+      }
+    }
+    if (best) {
+      transfer = best.t; pathNames = best.v1.concat(best.v2.slice(1));
+      const d1 = pathDist(best.v1), d2 = pathDist(best.v2);
+      html = "<div class='tcard'><div class='twarn'>1 change needed — switch buses at <b>" + best.t + "</b></div>" +
+        "<div class='trow'>" + rBadge(best.r1) + "<b>Route " + best.r1.n + "</b>" +
+        "<span class='tdist'>" + d1.toFixed(1) + " km &middot; &asymp;" + mins(d1) + " min</span></div>" +
+        "<div class='via'>" + best.v1.join(" &rarr; ") + "</div>" +
+        "<div class='trow'>" + rBadge(best.r2) + "<b>Route " + best.r2.n + "</b>" +
+        "<span class='tdist'>" + d2.toFixed(1) + " km &middot; &asymp;" + mins(d2) + " min</span></div>" +
+        "<div class='via'>" + best.v2.join(" &rarr; ") + "</div>" +
+        "<div class='ttotal'>Total &asymp; " + best.total.toFixed(1) + " km &middot; &asymp;" + mins(best.total) + " min</div></div>";
+    } else {
+      html = "<div class='tcard' style='font-size:13px;'>No bus connection found between these stops.</div>";
+    }
+  }
+  html += "<div style='font-size:10px;color:#999;margin-top:6px;'>Distances are approximate (summed stop-to-stop segments); time assumes &asymp;20 km/h city average.</div>";
+  res.innerHTML = html;
+  if (pathNames) {
+    const ll = pathNames.map(s => STOPS[s].slice(0,2));
+    L.polyline(ll, { color:"#fff", weight:9, opacity:.95 }).addTo(tripLayer);
+    L.polyline(ll, { color:"#111", weight:5, opacity:1 }).addTo(tripLayer);
+    const mk = (s, c) => L.circleMarker([STOPS[s][0], STOPS[s][1]],
+      { radius:8, color:"#fff", weight:2, fillColor:c, fillOpacity:1 }).addTo(tripLayer)
+      .bindPopup("<b>" + s + "</b>");
+    mk(a, "#1a9e4b"); mk(b, "#d23c3c");
+    if (transfer) mk(transfer, "#e8a013");
+    map.fitBounds(L.latLngBounds(ll).pad(0.2));
+  }
+}
+
+function tapStop(name) {
+  if (!tripFrom || tripTo) { tripFrom = name; tripTo = null; }
+  else if (name !== tripFrom) { tripTo = name; }
+  fromSel.value = tripFrom;
+  if (tripTo) { toSel.value = tripTo; planTrip(); }
+  else {
+    toSel.value = ""; tripLayer.clearLayers();
+    document.getElementById("tripResult").innerHTML =
+      "<div style='font-size:12px;color:#666;padding:6px 0;'>From: <b>" + tripFrom + "</b> — now tap your destination stop.</div>";
+  }
+}
+
+fromSel.onchange = planTrip; toSel.onchange = planTrip;
+document.getElementById("swapBtn").onclick = () => {
+  const t = fromSel.value; fromSel.value = toSel.value; toSel.value = t; planTrip();
+};
+document.getElementById("planToggle").onclick = () => {
+  tripMode = !tripMode;
+  document.getElementById("planToggle").classList.toggle("on", tripMode);
+  document.getElementById("tripBox").style.display = tripMode ? "block" : "none";
+  if (tripMode) {
+    panel.classList.remove("hidden");
+    if (fromSel.value && toSel.value) planTrip();
+  } else {
+    tripLayer.clearLayers(); tripFrom = tripTo = null;
+  }
+};
 
 render(""); updateCount();
 </script>
