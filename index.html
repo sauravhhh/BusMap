@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>BusMap — Guwahati City Bus Routes</title>
+<title>BusMap</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111111">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -11,83 +11,48 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  html,body { height:100%; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:#fff; color:#111; }
   #map { position:fixed; inset:0; z-index:1; }
-  .topbar {
-    position:fixed; top:0; left:0; right:0; z-index:1000;
-    background:#111; color:#fff; padding:10px 14px;
-    display:flex; align-items:center; gap:10px;
-  }
-  .topbar .bus { font-size:20px; }
-  .topbar h1 { font-size:15px; font-weight:600; letter-spacing:.3px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .topbar h1 small { display:block; font-size:10px; font-weight:400; color:#aaa; letter-spacing:.5px; }
-  #panelToggle {
-    background:#fff; color:#111; border:none; border-radius:20px;
-    padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
-  }
-  #planToggle {
-    background:transparent; color:#fff; border:1px solid rgba(255,255,255,.7); border-radius:20px;
-    padding:6px 13px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
-  }
-  #planToggle.on { background:#fff; color:#111; border-color:#fff; }
-  .tcard { border:1px solid #e4e4e4; border-radius:12px; padding:10px 12px; margin-bottom:8px; background:#fafafa; }
+  .topbar { position:fixed; top:0; left:0; right:0; z-index:1000; background:#fff; border-bottom:1px solid #ececec; padding:13px 16px; display:flex; align-items:center; gap:18px; }
+  .topbar h1 { font-size:17px; font-weight:600; letter-spacing:-.2px; flex:1; }
+  .tlink { background:none; border:none; font-size:14px; color:#888; cursor:pointer; padding:4px 0; }
+  .tlink.on { color:#111; font-weight:700; box-shadow:inset 0 -2px 0 #111; }
+  .panel { position:fixed; left:0; right:0; bottom:0; z-index:1000; background:#fff; border-top:1px solid #ececec; max-height:56vh; display:flex; flex-direction:column; transition:transform .25s ease; }
+  .panel.hidden { transform:translateY(102%); }
+  .grab { padding:10px 0 2px; text-align:center; cursor:pointer; }
+  .grab span { display:inline-block; width:36px; height:3px; border-radius:2px; background:#e2e2e2; }
+  .tools { display:flex; gap:14px; padding:8px 16px 6px; align-items:center; }
+  #search { flex:1; border:none; border-bottom:1px solid #e0e0e0; padding:8px 2px; font-size:14px; outline:none; background:transparent; border-radius:0; }
+  #search:focus { border-color:#111; }
+  .tbtn { background:none; border:none; font-size:13px; color:#888; cursor:pointer; padding:6px 0; }
+  .tbtn.on { color:#111; font-weight:700; }
+  #routeList { overflow-y:auto; padding:2px 8px 12px; -webkit-overflow-scrolling:touch; }
+  .rrow { display:flex; align-items:center; gap:10px; padding:11px 8px; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+  .rrow.off { opacity:.25; }
+  .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .rlabel { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rlabel b { font-weight:700; margin-right:8px; }
+  .src { padding:8px 16px 20px; font-size:10px; color:#b0b0b0; line-height:1.7; }
+  .src a { color:#b0b0b0; }
+  #tripBox { border-bottom:1px solid #ececec; padding:2px 16px 12px; }
+  .tsel { flex:1; min-width:0; border:none; border-bottom:1px solid #e0e0e0; padding:8px 2px; font-size:14px; background:transparent; outline:none; border-radius:0; color:#111; }
+  #swapBtn { background:none; border:none; font-size:18px; cursor:pointer; color:#111; padding:6px; flex-shrink:0; }
+  .tsec { padding:10px 0; border-bottom:1px solid #f2f2f2; font-size:13px; }
   .trow { display:flex; align-items:center; gap:8px; margin:8px 0 4px; }
   .trow b { font-size:13px; }
-  .tdist { margin-left:auto; font-size:12px; color:#555; white-space:nowrap; }
-  .tok { font-size:12px; color:#1a7a3c; font-weight:700; margin:2px 0 4px; }
-  .twarn { font-size:12px; color:#b35400; font-weight:700; margin:2px 0 4px; }
+  .rnum { min-width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .tdist { margin-left:auto; font-size:12px; color:#777; white-space:nowrap; }
+  .tok { font-size:12px; color:#1a7a3c; font-weight:700; margin-bottom:2px; }
+  .twarn { font-size:12px; color:#b35400; font-weight:700; margin-bottom:2px; }
   .ttotal { font-size:13px; font-weight:700; margin-top:8px; }
-  .tsel { flex:1; min-width:0; border:1px solid #ddd; border-radius:10px; padding:8px; font-size:13px; background:#f7f7f7; outline:none; }
-  #swapBtn { border:1px solid #111; background:#fff; border-radius:50%; width:34px; height:34px; font-size:15px; cursor:pointer; flex-shrink:0; }
-  .panel {
-    position:fixed; left:0; right:0; bottom:0; z-index:1000;
-    background:#fff; border-top:1px solid #e2e2e2; border-radius:16px 16px 0 0;
-    max-height:52vh; display:flex; flex-direction:column;
-    box-shadow:0 -4px 24px rgba(0,0,0,.12);
-    transition:transform .25s ease;
-  }
-  .panel.hidden { transform:translateY(calc(100% - 0px)); }
-  .panel .grab { padding:8px 0 2px; text-align:center; cursor:pointer; }
-  .panel .grab span { display:inline-block; width:40px; height:4px; border-radius:2px; background:#ccc; }
-  .panel .tools { display:flex; gap:8px; padding:6px 14px 10px; align-items:center; }
-  #search {
-    flex:1; border:1px solid #ddd; border-radius:20px; padding:8px 14px;
-    font-size:13px; outline:none; background:#f7f7f7;
-  }
-  #search:focus { border-color:#111; background:#fff; }
-  .tbtn { border:1px solid #111; background:#fff; color:#111; border-radius:20px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
-  .tbtn.on { background:#111; color:#fff; }
-  #routeList { overflow-y:auto; padding:0 8px 14px; -webkit-overflow-scrolling:touch; }
-  .rrow {
-    display:flex; align-items:center; gap:10px; padding:9px 8px;
-    border-bottom:1px solid #f0f0f0; cursor:pointer; border-radius:8px;
-  }
-  .rrow:active { background:#f5f5f5; }
-  .rrow.off { opacity:.38; }
-  .rnum {
-    min-width:34px; height:34px; border-radius:50%; color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    font-size:13px; font-weight:700; flex-shrink:0;
-  }
-  .rinfo { flex:1; min-width:0; }
-  .rinfo .rt { font-size:13px; font-weight:600; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .rinfo .rv { font-size:11px; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
-  .rcheck { width:20px; height:20px; border-radius:50%; border:2px solid #111; flex-shrink:0; position:relative; }
-  .rrow:not(.off) .rcheck::after {
-    content:""; position:absolute; inset:3px; border-radius:50%; background:#111;
-  }
-  .rrow.off .rcheck { border-color:#bbb; }
-  .src { padding:10px 16px 16px; font-size:11px; color:#888; line-height:1.6; border-top:1px solid #f0f0f0; }
-  .src b { color:#555; }
-  .leaflet-popup-content { font-size:13px; line-height:1.5; }
-  .leaflet-popup-content b.r { font-size:14px; }
-  .via { color:#555; font-size:12px; }
-  .count { position:fixed; top:64px; right:10px; z-index:1000; background:#111; color:#fff;
-    font-size:11px; padding:5px 10px; border-radius:14px; opacity:.85; }
+  .via { color:#777; font-size:12px; line-height:1.6; }
+  .tnote { font-size:10px; color:#b0b0b0; margin-top:8px; line-height:1.6; }
+  .thint { font-size:11px; color:#999; margin-top:8px; }
+  .leaflet-popup-content { font-size:13px; line-height:1.5; margin:12px 14px; }
   @media (min-width:700px){
-    .panel { left:auto; right:14px; bottom:14px; top:64px; width:340px; max-height:none; border-radius:14px; border:1px solid #e2e2e2; box-shadow:0 8px 30px rgba(0,0,0,.14); }
-    .panel.hidden { transform:translateX(calc(100% + 20px)); }
-    .count { right:368px; }
+    .panel { left:auto; right:16px; bottom:16px; top:66px; width:330px; max-height:none; border:1px solid #ececec; border-radius:12px; }
+    .panel.hidden { transform:translateX(calc(100% + 24px)); }
+    .grab { display:none; }
   }
 </style>
 </head>
@@ -95,12 +60,10 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <span class="bus">🚌</span>
-  <h1>BusMap<small>GUWAHATI ASTC CITY BUS ROUTES &middot; 37 ROUTES</small></h1>
-  <button id="planToggle">Plan trip</button>
-  <button id="panelToggle">Routes</button>
+  <h1>BusMap</h1>
+  <button class="tlink" id="planToggle">Plan</button>
+  <button class="tlink on" id="panelToggle">Routes</button>
 </div>
-<div class="count" id="count"></div>
 
 <div class="panel" id="panel">
   <div class="grab" id="grab"><span></span></div>
@@ -109,21 +72,17 @@
     <button class="tbtn on" id="btnAll">All</button>
     <button class="tbtn" id="btnNone">None</button>
   </div>
-  <div id="tripBox" style="display:none;border-bottom:1px solid #f0f0f0;padding:2px 14px 12px;">
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+  <div id="tripBox" style="display:none;">
+    <div style="display:flex;gap:10px;align-items:center;margin:4px 0;">
       <select id="fromSel" class="tsel"></select>
       <button id="swapBtn" title="Swap">&#8646;</button>
       <select id="toSel" class="tsel"></select>
     </div>
     <div id="tripResult"></div>
-    <div style="font-size:11px;color:#888;margin-top:8px;">Tip: with Plan trip on, you can also tap two stops directly on the map.</div>
+    <div class="thint">Tip: with Plan on, you can also tap two stops on the map.</div>
   </div>
   <div id="routeList"></div>
-  <div class="src">
-    <b>Sources:</b> RTA Kamrup (M) Mini City Bus routes 1–37 (2019) &middot; ASTC “Uberization” SCR city service list (astc.assam.gov.in).<br>
-    <b>Note:</b> Schematic map — lines join stops in order, not GPS traces. A few minor stops are placed approximately. Routes/timings change; confirm locally before travel.<br>
-    Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
-  </div>
+  <div class="src">Routes: RTA Kamrup (M) 2019 &middot; ASTC SCR list. Schematic map — some stops approximate. Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -244,7 +203,6 @@ Object.keys(STOPS).forEach(name => {
 
 /* ============ PANEL ============ */
 const listEl = document.getElementById("routeList"),
-      countEl = document.getElementById("count"),
       panel = document.getElementById("panel"),
       visible = new Set(ROUTES.map(r => r.n));
 
@@ -258,40 +216,39 @@ function render(filter) {
     shown++;
     const row = document.createElement("div");
     row.className = "rrow" + (visible.has(r.n) ? "" : " off");
-    row.innerHTML = "<div class='rnum' style='background:" + colorFor(i) + "'>" + r.n + "</div>" +
-      "<div class='rinfo'><div class='rt'>" + r.from + " &rarr; " + r.to + "</div>" +
-      "<div class='rv'>" + r.stops.length + " stops &middot; via " + r.stops.slice(1,-1).join(", ") + "</div></div>" +
-      "<div class='rcheck'></div>";
+    row.innerHTML = "<span class='dot' style='background:" + colorFor(i) + "'></span>" +
+      "<span class='rlabel'><b>" + r.n + "</b>" + r.from + " &rarr; " + r.to + "</span>";
     row.onclick = () => {
       if (visible.has(r.n)) { visible.delete(r.n); map.removeLayer(routeLayers[r.n]); }
       else { visible.add(r.n); routeLayers[r.n].addTo(map); }
       row.classList.toggle("off");
-      updateCount();
     };
     row.ondblclick = () => { // isolate on double tap
       visible.clear();
       ROUTES.forEach(x => map.removeLayer(routeLayers[x.n]));
       visible.add(r.n); routeLayers[r.n].addTo(map);
       map.fitBounds(routeLayers[r.n].getBounds().pad(0.15));
-      render(document.getElementById("search").value); updateCount();
+      render(document.getElementById("search").value);
     };
     listEl.appendChild(row);
   });
   if (!shown) listEl.innerHTML = "<div style='padding:20px;text-align:center;color:#888;font-size:13px'>No routes match.</div>";
 }
-function updateCount(){ countEl.textContent = visible.size + " / " + ROUTES.length + " routes"; }
 document.getElementById("search").addEventListener("input", e => render(e.target.value));
 document.getElementById("btnAll").onclick = () => {
   ROUTES.forEach(r => { visible.add(r.n); if(!map.hasLayer(routeLayers[r.n])) routeLayers[r.n].addTo(map); });
   document.getElementById("btnAll").classList.add("on"); document.getElementById("btnNone").classList.remove("on");
-  render(document.getElementById("search").value); updateCount();
+  render(document.getElementById("search").value);
 };
 document.getElementById("btnNone").onclick = () => {
   visible.clear(); ROUTES.forEach(r => map.removeLayer(routeLayers[r.n]));
   document.getElementById("btnNone").classList.add("on"); document.getElementById("btnAll").classList.remove("on");
-  render(document.getElementById("search").value); updateCount();
+  render(document.getElementById("search").value);
 };
-const togglePanel = () => panel.classList.toggle("hidden");
+const togglePanel = () => {
+  panel.classList.toggle("hidden");
+  document.getElementById("panelToggle").classList.toggle("on", !panel.classList.contains("hidden"));
+};
 document.getElementById("panelToggle").onclick = togglePanel;
 document.getElementById("grab").onclick = togglePanel;
 
@@ -336,7 +293,7 @@ function planTrip() {
   if (direct.length) {
     html = direct.map((o, i) => {
       if (i === 0) pathNames = o.via;
-      return "<div class='tcard'>" +
+      return "<div class='tsec'>" +
         (i === 0 ? "<div class='tok'>Direct bus — no change needed</div>" : "") +
         "<div class='trow'>" + rBadge(o.r) + "<b>Route " + o.r.n + "</b>" +
         "<span class='tdist'>" + o.d.toFixed(1) + " km &middot; &asymp;" + mins(o.d) + " min</span></div>" +
@@ -357,7 +314,7 @@ function planTrip() {
     if (best) {
       transfer = best.t; pathNames = best.v1.concat(best.v2.slice(1));
       const d1 = pathDist(best.v1), d2 = pathDist(best.v2);
-      html = "<div class='tcard'><div class='twarn'>1 change needed — switch buses at <b>" + best.t + "</b></div>" +
+      html = "<div class='tsec'><div class='twarn'>1 change needed — switch buses at <b>" + best.t + "</b></div>" +
         "<div class='trow'>" + rBadge(best.r1) + "<b>Route " + best.r1.n + "</b>" +
         "<span class='tdist'>" + d1.toFixed(1) + " km &middot; &asymp;" + mins(d1) + " min</span></div>" +
         "<div class='via'>" + best.v1.join(" &rarr; ") + "</div>" +
@@ -366,7 +323,7 @@ function planTrip() {
         "<div class='via'>" + best.v2.slice(1).join(" &rarr; ") + "</div>" +
         "<div class='ttotal'>Total &asymp; " + best.total.toFixed(1) + " km &middot; &asymp;" + mins(best.total) + " min</div></div>";
     } else {
-      html = "<div class='tcard' style='font-size:13px;'>No bus connection found between these stops.</div>";
+      html = "<div class='tsec'>No bus connection found between these stops.</div>";
     }
   }
   html += "<div style='font-size:10px;color:#999;margin-top:6px;'>Distances are approximate (summed stop-to-stop segments); time assumes &asymp;20 km/h city average.</div>";
@@ -414,7 +371,7 @@ document.getElementById("planToggle").onclick = () => {
   }
 };
 
-render(""); updateCount();
+render("");
 
 /* register service worker for installable offline PWA */
 if ("serviceWorker" in navigator) {
