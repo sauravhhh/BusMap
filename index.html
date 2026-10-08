@@ -15,6 +15,7 @@
   #map { position:fixed; inset:0; z-index:1; }
   .topbar { position:fixed; top:0; left:0; right:0; z-index:1000; background:#fff; border-bottom:1px solid #ececec; padding:13px 16px; display:flex; align-items:center; gap:18px; }
   .topbar h1 { font-size:17px; font-weight:600; letter-spacing:-.2px; flex:1; }
+  .topbar h1 img { width:24px; height:24px; border-radius:7px; vertical-align:-5px; margin-right:8px; }
   .tlink { background:none; border:none; font-size:14px; color:#888; cursor:pointer; padding:4px 0; }
   .tlink.on { color:#111; font-weight:700; box-shadow:inset 0 -2px 0 #111; }
   .panel { position:fixed; left:0; right:0; bottom:0; z-index:1000; background:#fff; border-top:1px solid #ececec; max-height:56vh; display:flex; flex-direction:column; transition:transform .25s ease; }
@@ -60,7 +61,7 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <h1>BusMap</h1>
+  <h1><img src="icons/icon-192.png" alt="">BusMap</h1>
   <button class="tlink" id="planToggle">Plan</button>
   <button class="tlink on" id="panelToggle">Routes</button>
 </div>
