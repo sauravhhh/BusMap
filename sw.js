@@ -1,5 +1,5 @@
 /* BusMap service worker — network-first app shell, cache-first map tiles */
-const CACHE = "busmap-v4";
+const CACHE = "busmap-v5";
 const CORE = ["./", "index.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
