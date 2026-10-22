@@ -369,9 +369,11 @@ document.getElementById("planToggle").onclick = () => {
     panel.classList.remove("hidden");
     fromSel.value = ""; toSel.value = "";
     tripFrom = tripTo = null;
+    ROUTES.forEach(r => map.removeLayer(routeLayers[r.n]));   // no routes shown in Plan — only your trip
     planTrip();
   } else {
     tripLayer.clearLayers(); tripFrom = tripTo = null;
+    ROUTES.forEach(r => { if (visible.has(r.n) && !map.hasLayer(routeLayers[r.n])) routeLayers[r.n].addTo(map); });
   }
 };
 
