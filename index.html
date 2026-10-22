@@ -363,6 +363,8 @@ document.getElementById("planToggle").onclick = () => {
   tripMode = !tripMode;
   document.getElementById("planToggle").classList.toggle("on", tripMode);
   document.getElementById("tripBox").style.display = tripMode ? "block" : "none";
+  document.getElementById("btnAll").style.display = tripMode ? "none" : "";
+  document.getElementById("btnNone").style.display = tripMode ? "none" : "";
   if (tripMode) {
     panel.classList.remove("hidden");
     fromSel.value = ""; toSel.value = "";
