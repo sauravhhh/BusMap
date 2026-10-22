@@ -289,12 +289,20 @@ function planTrip() {
     return;
   }
   let html = "", pathNames = null, transfer = null;
+  const walkKm = hav(STOPS[a].slice(0,2), STOPS[b].slice(0,2));
+  if (walkKm <= 1) {
+    pathNames = [a, b];
+    html += "<div class='tsec'><div class='tok'>Walk — no bus needed</div>" +
+      "<div class='trow'><b>" + a + " &rarr; " + b + "</b>" +
+      "<span class='tdist'>" + (walkKm < 0.95 ? Math.round(walkKm*1000) + " m" : walkKm.toFixed(1) + " km") + " &middot; &asymp;" + Math.max(1, Math.round(walkKm*12)) + " min walk</span></div>" +
+      "<div class='via'>These two stops are close — walking beats the bus here.</div></div>";
+  }
   const direct = ROUTES.filter(r => r.stops.includes(a) && r.stops.includes(b))
     .map(r => { const via = segStops(r, a, b); return { r, via, d: pathDist(via) }; })
     .sort((x, y) => x.d - y.d).slice(0, 3);
   if (direct.length) {
     html = direct.map((o, i) => {
-      if (i === 0) pathNames = o.via;
+      if (i === 0 && !pathNames) pathNames = o.via;
       return "<div class='tsec'>" +
         (i === 0 ? "<div class='tok'>Direct bus — no change needed</div>" : "") +
         "<div class='trow'>" + rBadge(o.r) + "<b>Route " + o.r.n + "</b>" +
@@ -314,7 +322,7 @@ function planTrip() {
       }
     }
     if (best) {
-      transfer = best.t; pathNames = best.v1.concat(best.v2.slice(1));
+      transfer = best.t; if (!pathNames) pathNames = best.v1.concat(best.v2.slice(1));
       const d1 = pathDist(best.v1), d2 = pathDist(best.v2);
       html = "<div class='tsec'><div class='twarn'>1 change needed — switch buses at <b>" + best.t + "</b></div>" +
         "<div class='trow'>" + rBadge(best.r1) + "<b>Route " + best.r1.n + "</b>" +
